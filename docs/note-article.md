@@ -1,7 +1,6 @@
 # 【無料配布】AIが「聞いてる・考えてる・話してる」を光で見せる — 曼荼羅＆オーブ音声ビジュアライザーを公開しました
 
 > note / Brain 共通の紹介記事。Brainに載せる場合は末尾の「有料版について」を残し、noteでは削るか予告だけにする。
-> `https://github.com/tamasizume/earth-antenna-mandala-orb` はリポジトリURLに、`https://tamasizume.github.io/earth-antenna-mandala-orb/` はGitHub PagesのデモURLに置き換える。
 
 ---
 

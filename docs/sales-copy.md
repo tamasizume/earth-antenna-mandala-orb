@@ -1,7 +1,7 @@
 # 販売・紹介用の文章と画像 — AI音声チャットパック 曼荼羅＆オーブ版
 
 無料版（GitHub）と有料の統合パック（BOOTH / Brain）の両方で使い回せるように書いています。
-`https://github.com/tamasizume/earth-antenna-mandala-orb` `https://tamasizume.github.io/earth-antenna-mandala-orb/` `__PRICE__` は公開時に置き換えてください。
+`__PRICE__` は価格が決まったら置き換えてください。
 
 ---
 
