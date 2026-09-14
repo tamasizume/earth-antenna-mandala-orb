@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mandala Orb — 音声チャット接続サンプル</title>
+<style>
+  :root { --bg:#07070c; --panel:#111119; --line:#26263a; --text:#e6e6f0; --muted:#8a8aa3; --accent:#6eafff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 16px; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:12px; margin:0 0 16px; text-align:center; }
+  #orb { width:min(46vh,80vw); height:min(46vh,80vw); display:block; }
+  #state { color:var(--muted); font-size:12px; letter-spacing:.2em; text-transform:uppercase; margin:6px 0 14px; }
+  #log { width:100%; max-width:560px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; min-height:120px; max-height:220px; overflow-y:auto; }
+  .msg { margin:4px 0; } .msg.user { color:#9ec5ff; } .msg.ai { color:#f0d9ff; }
+  .row { display:flex; gap:8px; margin-top:12px; width:100%; max-width:560px; }
+  button { flex:1; background:#1a1a26; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; cursor:pointer; font:inherit; }
+  button.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  .note { color:var(--muted); font-size:12px; margin-top:12px; max-width:560px; }
+</style>
+</head>
+<body>
+<h1>音声チャット接続サンプル</h1>
+<p class="sub">ブラウザ内蔵の音声認識・音声合成だけで動きます（APIキー不要）。<br>AIの返答部分を自分のAI(Claude / ChatGPT / Gemini等)の呼び出しに差し替えて使ってください。</p>
+<canvas id="orb"></canvas>
+<div id="state">idle</div>
+<div id="log"></div>
+<div class="row">
+  <button id="talkBtn">🎤 話しかける</button>
+  <button id="patternBtn">パターン切替</button>
+</div>
+<p class="note" id="note">Chrome / Edge で開いてください。マイク許可が求められます。</p>
+
+<script src="../mandala-orb.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const orb = MandalaOrb.create($('orb'), { pattern: 'mandala', density: 300, sensitivity: 1.4, symmetry: 15 });
+  function setState(s) { orb.setState(s); $('state').textContent = s; }
+  function log(who, text) { const d = document.createElement('div'); d.className = 'msg ' + who; d.textContent = (who === 'user' ? 'あなた: ' : 'AI: ') + text; $('log').appendChild(d); $('log').scrollTop = 1e9; }
+
+  $('patternBtn').addEventListener('click', () => orb.set({ pattern: orb.get().pattern === 'mandala' ? 'orb' : 'mandala' }));
+
+  // ===== ① listening: マイクの音量を setLevel に流しつつ、音声認識でテキスト化 =====
+  let audioCtx = null, analyser = null, buf = null, micStream = null, meterRaf = 0;
+  async function startMeter() {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 512; analyser.smoothingTimeConstant = 0.6;
+    buf = new Uint8Array(analyser.frequencyBinCount);
+    audioCtx.createMediaStreamSource(micStream).connect(analyser);
+    (function loop() { meterRaf = requestAnimationFrame(loop);
+      analyser.getByteFrequencyData(buf);
+      const n = Math.floor(buf.length * 0.35); let s = 0; for (let i = 0; i < n; i++) s += buf[i];
+      orb.setLevel(Math.min(1, (s / n / 255) * 1.6));
+    })();
+  }
+  async function stopMeter() {
+    cancelAnimationFrame(meterRaf);
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    if (audioCtx) { await audioCtx.close(); audioCtx = null; } // 使い終わったら必ず close
+    orb.setLevel(0);
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let listening = false;
+  $('talkBtn').addEventListener('click', async () => {
+    if (!SR) { $('note').textContent = 'このブラウザは音声認識に対応していません(Chrome / Edge を使ってください)。'; return; }
+    if (listening) return;
+    listening = true; $('talkBtn').classList.add('active');
+    setState('listening');
+    try { await startMeter(); } catch (e) { $('note').textContent = 'マイクを使えませんでした: ' + e.message; listening = false; $('talkBtn').classList.remove('active'); setState('idle'); return; }
+
+    const rec = new SR(); rec.lang = 'ja-JP'; rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onresult = async (ev) => {
+      const text = ev.results[0][0].transcript;
+      log('user', text);
+      await stopMeter();
+      await respond(text);
+    };
+    rec.onerror = async () => { await stopMeter(); setState('idle'); listening = false; $('talkBtn').classList.remove('active'); };
+    rec.onend = () => { if (listening && orb.state === 'listening') { stopMeter(); setState('idle'); listening = false; $('talkBtn').classList.remove('active'); } };
+    rec.start();
+  });
+
+  // ===== ② thinking: ここを自分のAI呼び出しに差し替える =====
+  async function askAI(userText) {
+    // 例: Claude API をサーバー経由で呼ぶ場合
+    //   const r = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ text: userText }) });
+    //   return (await r.json()).reply;
+    // ※ APIキーはブラウザに置かず、必ずサーバー側で保持してください。
+    await new Promise(r => setTimeout(r, 1500)); // 考えている風の待ち時間
+    return '「' + userText + '」ですね。これはサンプルの返答です。askAI関数を自分のAIに差し替えてください。';
+  }
+
+  // ===== ③ speaking: 音声合成で読み上げ。音量は擬似的に生成して setLevel に流す =====
+  // (speechSynthesis は音量を取れないため。TTSの音声ファイルを再生する場合は
+  //  ①と同じ AnalyserNode で実測した音量を渡せばよい)
+  async function respond(userText) {
+    setState('thinking');
+    const reply = await askAI(userText);
+    log('ai', reply);
+    setState('speaking');
+    await speak(reply);
+    setState('idle');
+    listening = false; $('talkBtn').classList.remove('active');
+  }
+  function speak(text) {
+    return new Promise((resolve) => {
+      if (!window.speechSynthesis) { setTimeout(resolve, 2000); return; }
+      const u = new SpeechSynthesisUtterance(text); u.lang = 'ja-JP'; u.rate = 1.0;
+      let raf = 0, talking = true;
+      (function loop() { if (!talking) return; raf = requestAnimationFrame(loop);
+        const tt = performance.now() / 1000;
+        orb.setLevel(Math.max(0, Math.min(1, 0.4 + 0.3 * Math.sin(tt * 6.1) + 0.2 * Math.sin(tt * 14.3) + 0.1 * Math.sin(tt * 2.2))));
+      })();
+      const finish = () => { talking = false; cancelAnimationFrame(raf); orb.setLevel(0); resolve(); };
+      u.onend = finish; u.onerror = finish;
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    });
+  }
+
+  window.addEventListener('pagehide', () => { stopMeter(); if (window.speechSynthesis) speechSynthesis.cancel(); });
+})();
+</script>
+</body>
+</html>

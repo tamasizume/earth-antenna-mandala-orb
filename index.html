@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mandala Orb — AI Voice Chat UI デモ</title>
+<style>
+  :root { --bg:#07070c; --panel:#111119; --line:#26263a; --text:#e6e6f0; --muted:#8a8aa3; --accent:#6eafff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; display:flex; height:100vh; overflow:hidden; }
+  #stage { flex:1; position:relative; display:flex; align-items:center; justify-content:center; }
+  #orb { width:min(70vh,70vw); height:min(70vh,70vw); display:block; }
+  #stateLabel { position:absolute; bottom:22px; left:50%; transform:translateX(-50%); color:var(--muted); font-size:12px; letter-spacing:.2em; text-transform:uppercase; }
+  #panel { width:300px; background:var(--panel); border-left:1px solid var(--line); padding:14px; overflow-y:auto; }
+  h1 { font-size:14px; margin:0 0 4px; }
+  .sub { color:var(--muted); font-size:11px; margin:0 0 12px; }
+  .group { border-top:1px solid var(--line); padding:10px 0; }
+  .label { font-size:11px; color:var(--muted); margin-bottom:6px; display:flex; justify-content:space-between; }
+  .seg { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+  button { background:#1a1a26; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:7px 8px; cursor:pointer; font:inherit; }
+  button:hover { border-color:var(--accent); }
+  button.active { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  select, input[type=color] { width:100%; background:#1a1a26; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px; font:inherit; }
+  input[type=color] { height:32px; padding:2px; }
+  .row { display:flex; gap:6px; align-items:center; }
+  .row > * { flex:1; }
+  pre { background:#0b0b12; border:1px solid var(--line); border-radius:6px; padding:8px; font-size:11px; overflow-x:auto; margin:6px 0 0; color:#c8d3ff; }
+  .note { font-size:11px; color:var(--muted); margin-top:6px; }
+  input[type=file] { display:none; }
+  @media (max-width:760px) { body { flex-direction:column; } #panel { width:100%; border-left:0; border-top:1px solid var(--line); max-height:48vh; } #orb { width:min(45vh,90vw); height:min(45vh,90vw); } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="orb"></canvas>
+  <div id="stateLabel">idle</div>
+</div>
+
+<div id="panel">
+  <h1>Mandala Orb デモ</h1>
+  <p class="sub">会話状態と音量を外から渡して描く音声ビジュアライザー</p>
+
+  <div class="group">
+    <div class="label"><span>パターン</span></div>
+    <select id="pattern">
+      <option value="mandala">曼荼羅(対称)</option>
+      <option value="orb">丸いアイコン(Siri風)</option>
+    </select>
+  </div>
+
+  <div class="group">
+    <div class="label"><span>会話の状態</span></div>
+    <div class="seg" id="stateBtns">
+      <button data-state="idle" class="active">待機 idle</button>
+      <button data-state="listening">聞き取り listening</button>
+      <button data-state="thinking">思考中 thinking</button>
+      <button data-state="speaking">発話中 speaking</button>
+    </div>
+    <div class="row" style="margin-top:6px;">
+      <button id="autoBtn">自動デモ(状態を順に切替)</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="label"><span>録画(YouTube用 1920×1080・背景黒)</span></div>
+    <div class="row">
+      <button id="recBtn">自動デモを録画して保存</button>
+    </div>
+    <div class="note" id="recNote">曼荼羅→丸いアイコンの順に各状態を1周ずつ、約24秒の .webm を書き出します。</div>
+  </div>
+
+  <div class="group">
+    <div class="label"><span>密度(粒子数)</span><span id="densityVal">300</span></div>
+    <input type="range" id="density" min="50" max="2200" step="10" value="300">
+    <div class="label" style="margin-top:8px;"><span>感度(音の反応の強さ)</span><span id="sensVal">1.4</span></div>
+    <input type="range" id="sens" min="0.5" max="3" step="0.1" value="1.4">
+    <div class="label" style="margin-top:8px;"><span>花びらの枚数(対称数)</span><span id="symVal">15</span></div>
+    <input type="range" id="sym" min="1" max="24" step="1" value="15">
+    <div class="label" style="margin-top:8px;"><span>回転速度</span><span id="spinVal">0.12</span></div>
+    <input type="range" id="spin" min="-0.6" max="0.6" step="0.02" value="0.12">
+  </div>
+
+  <div class="group">
+    <div class="label"><span>色</span></div>
+    <div class="row">
+      <div><div class="label"><span>基準色</span></div><input type="color" id="color" value="#6eafff"></div>
+      <div><div class="label"><span>外側の色</span></div><input type="color" id="colorEdge" value="#cd6ee6"></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="label"><span>音量の入力元</span></div>
+    <div class="label"><span>手動(スライダー)</span><span id="levelVal">0.00</span></div>
+    <input type="range" id="level" min="0" max="1" step="0.01" value="0">
+    <div class="row" style="margin-top:8px;">
+      <button id="micBtn">マイクを使う</button>
+      <button id="fileBtn">音声ファイルを再生</button>
+    </div>
+    <input type="file" id="file" accept="audio/*">
+    <div class="note" id="audioNote">マイク/ファイルを使うと、音量が自動でオーブに渡されます。</div>
+  </div>
+
+  <div class="group">
+    <div class="label"><span>組み込みコード(現在の設定)</span></div>
+    <pre id="code"></pre>
+    <div class="note">mandala-orb.js を読み込み、上のコードを貼るだけ。マイクやTTSの処理は各AI側で行い、音量だけ setLevel() に渡してください。</div>
+  </div>
+</div>
+
+<script src="mandala-orb.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const canvas = $('orb');
+  const orb = MandalaOrb.create(canvas, { pattern: 'mandala', density: 300, sensitivity: 1.4, symmetry: 15 });
+  window.orb = orb; // コンソールから触れるように
+
+  // ---- パネル → orb ----
+  function bindRange(id, valId, key, fmt) {
+    const el = $(id);
+    const show = () => { $(valId).textContent = fmt ? fmt(el.value) : el.value; };
+    show();
+    el.addEventListener('input', () => { show(); orb.set({ [key]: parseFloat(el.value) }); updateCode(); });
+  }
+  bindRange('density', 'densityVal', 'density', v => String(Math.round(v)));
+  bindRange('sens', 'sensVal', 'sensitivity', v => Number(v).toFixed(1));
+  bindRange('sym', 'symVal', 'symmetry', v => String(Math.round(v)));
+  bindRange('spin', 'spinVal', 'spin', v => Number(v).toFixed(2));
+  $('pattern').addEventListener('change', () => { orb.set({ pattern: $('pattern').value }); updateCode(); });
+  $('color').addEventListener('input', () => { orb.set({ color: $('color').value }); updateCode(); });
+  $('colorEdge').addEventListener('input', () => { orb.set({ colorEdge: $('colorEdge').value }); updateCode(); });
+
+  function setState(name) {
+    orb.setState(name);
+    $('stateLabel').textContent = name;
+    document.querySelectorAll('#stateBtns button').forEach(b => b.classList.toggle('active', b.dataset.state === name));
+  }
+  document.querySelectorAll('#stateBtns button').forEach(b => b.addEventListener('click', () => { stopAuto(); setState(b.dataset.state); }));
+
+  // ---- 自動デモ: idle → listening → thinking → speaking をループ ----
+  let autoTimer = null, autoStep = 0;
+  const AUTO = [['idle', 2500], ['listening', 3000], ['thinking', 2500], ['speaking', 3500]];
+  function autoTick() {
+    const [name, ms] = AUTO[autoStep % AUTO.length];
+    setState(name);
+    // 音量は擬似的に生成(listening/speaking のときだけ揺らす)
+    fakeLevel = (name === 'listening' || name === 'speaking');
+    autoStep++;
+    autoTimer = setTimeout(autoTick, ms);
+  }
+  function stopAuto() { if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; fakeLevel = false; $('autoBtn').classList.remove('active'); } }
+  $('autoBtn').addEventListener('click', () => {
+    if (autoTimer) { stopAuto(); return; }
+    $('autoBtn').classList.add('active'); autoStep = 0; autoTick();
+  });
+  let fakeLevel = false;
+  (function fakeLoop() {
+    requestAnimationFrame(fakeLoop);
+    if (!fakeLevel || audioSource) return;
+    const tt = performance.now() / 1000;
+    const v = 0.35 + 0.3 * Math.sin(tt * 5.3) + 0.2 * Math.sin(tt * 13.1) + 0.15 * Math.sin(tt * 1.7);
+    orb.setLevel(Math.max(0, Math.min(1, v)));
+    $('level').value = orb.level.toFixed(2); $('levelVal').textContent = orb.level.toFixed(2);
+  })();
+
+  // ---- 手動レベル ----
+  $('level').addEventListener('input', () => { orb.setLevel(parseFloat($('level').value)); $('levelVal').textContent = Number($('level').value).toFixed(2); });
+
+  // ---- 音声入力(マイク / ファイル) ----
+  // AudioContextは1つだけ作り、使い終わったら必ず close() してリークを防ぐ。
+  // (提案書④: モード切替・ページ離脱時に suspended/closed にならず残るバグの対策)
+  let audioCtx = null, analyser = null, freqData = null, audioSource = null, micStream = null, meterRaf = 0;
+  const audioEl = new Audio();
+  audioEl.crossOrigin = 'anonymous';
+
+  async function ensureCtx() {
+    if (!audioCtx || audioCtx.state === 'closed') {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.6;
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+    }
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    return audioCtx;
+  }
+  function meter() {
+    meterRaf = requestAnimationFrame(meter);
+    if (!analyser) return;
+    analyser.getByteFrequencyData(freqData);
+    // 低域〜中域の平均を音量として使う(声の帯域が中心)
+    const n = Math.max(8, Math.floor(freqData.length * 0.35));
+    let sum = 0; for (let i = 0; i < n; i++) sum += freqData[i];
+    const v = Math.min(1, (sum / n / 255) * 1.6);
+    orb.setLevel(v);
+    $('level').value = v.toFixed(2); $('levelVal').textContent = v.toFixed(2);
+  }
+  async function stopAudio() {
+    cancelAnimationFrame(meterRaf); meterRaf = 0;
+    if (audioSource) { try { audioSource.disconnect(); } catch (e) {} audioSource = null; }
+    if (micStream) { micStream.getTracks().forEach(tr => tr.stop()); micStream = null; }
+    if (!audioEl.paused) audioEl.pause();
+    if (audioCtx && audioCtx.state !== 'closed') { await audioCtx.close(); }
+    audioCtx = null; analyser = null;
+    orb.setLevel(0);
+    $('micBtn').classList.remove('active'); $('fileBtn').classList.remove('active');
+    $('audioNote').textContent = '音声入力を停止し、AudioContextを close しました。';
+  }
+
+  $('micBtn').addEventListener('click', async () => {
+    if (micStream) { await stopAudio(); return; }
+    await stopAudio();
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ctx = await ensureCtx();
+      audioSource = ctx.createMediaStreamSource(micStream);
+      audioSource.connect(analyser); // スピーカーには繋がない(ハウリング防止)
+      stopAuto(); setState('listening');
+      $('micBtn').classList.add('active');
+      $('audioNote').textContent = 'マイク入力中(状態: listening)。もう一度押すと停止します。';
+      meter();
+    } catch (e) {
+      $('audioNote').textContent = 'マイクを使えませんでした: ' + e.message;
+      await stopAudio();
+    }
+  });
+
+  $('fileBtn').addEventListener('click', () => { if (audioSource && !micStream) { stopAudio(); } else { $('file').click(); } });
+  let mediaNode = null; // createMediaElementSource は要素につき1回しか作れない
+  $('file').addEventListener('change', async () => {
+    const f = $('file').files[0]; if (!f) return;
+    await stopAudio();
+    const ctx = await ensureCtx();
+    audioEl.src = URL.createObjectURL(f);
+    if (!mediaNode || mediaNode.context !== ctx) mediaNode = ctx.createMediaElementSource(audioEl);
+    mediaNode.connect(analyser); analyser.connect(ctx.destination);
+    audioSource = mediaNode;
+    stopAuto(); setState('speaking');
+    $('fileBtn').classList.add('active');
+    $('audioNote').textContent = '再生中(状態: speaking)。もう一度押すと停止します。';
+    audioEl.onended = () => { setState('idle'); stopAudio(); };
+    await audioEl.play();
+    meter();
+    $('file').value = '';
+  });
+
+  // ページを離れる/隠すときは必ず片付ける
+  window.addEventListener('pagehide', () => { stopAudio(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden && audioCtx && audioCtx.state === 'running') audioCtx.suspend(); else if (!document.hidden && audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); });
+
+  // ---- 録画: 1920×1080の裏キャンバスで自動デモを回し、MediaRecorderで .webm に ----
+  const REC_W = 1920, REC_H = 1080, REC_FPS = 30;
+  let recording = false;
+  $('recBtn').addEventListener('click', async () => {
+    if (recording) return;
+    if (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream) {
+      $('recNote').textContent = 'このブラウザは録画に対応していません(Chrome / Edge を使ってください)。'; return;
+    }
+    recording = true; stopAuto();
+    $('recBtn').classList.add('active');
+
+    const rc = document.createElement('canvas');
+    rc.width = REC_W; rc.height = REC_H;
+    const o = orb.get();
+    const rec = MandalaOrb.create(rc, {
+      pattern: 'mandala', density: o.density, sensitivity: o.sensitivity, symmetry: o.symmetry,
+      spin: o.spin, color: o.color, colorEdge: o.colorEdge, orbMix: o.orbMix,
+      background: '#000', pixelRatio: 1,
+    });
+    // 音量の擬似生成(listening / speaking のときだけ)
+    let recFake = false, recRaf = 0;
+    (function loop() { recRaf = requestAnimationFrame(loop);
+      if (!recFake) { rec.setLevel(0); return; }
+      const tt = performance.now() / 1000;
+      rec.setLevel(Math.max(0, Math.min(1, 0.35 + 0.3 * Math.sin(tt * 5.3) + 0.2 * Math.sin(tt * 13.1) + 0.15 * Math.sin(tt * 1.7))));
+    })();
+
+    const mime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+    const stream = rc.captureStream(REC_FPS);
+    const mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+    const chunks = [];
+    mr.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    const done = new Promise(res => { mr.onstop = res; });
+
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    const SEQ = [['idle', 2500], ['listening', 3000], ['thinking', 2500], ['speaking', 3500]];
+    const total = SEQ.reduce((a, [, ms]) => a + ms, 0) * 2 + 800;
+    const t0 = performance.now();
+    const tick = setInterval(() => { $('recNote').textContent = '録画中… ' + ((performance.now() - t0) / 1000).toFixed(1) + ' / ' + (total / 1000).toFixed(1) + ' 秒'; }, 200);
+
+    await sleep(300); // 最初のフレームが描かれるのを待つ
+    mr.start(250);
+    for (const pattern of ['mandala', 'orb']) {
+      rec.set({ pattern });
+      for (const [name, ms] of SEQ) {
+        rec.setState(name); recFake = (name === 'listening' || name === 'speaking');
+        setState(name); fakeLevel = recFake; // 画面側も同じ状態・音量にして進行が見えるように
+        await sleep(ms);
+      }
+    }
+    rec.setState('idle'); recFake = false; await sleep(800);
+    mr.stop(); await done;
+    clearInterval(tick); cancelAnimationFrame(recRaf); rec.destroy();
+
+    const blob = new Blob(chunks, { type: mime || 'video/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'mandala-orb-demo.webm'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    $('recNote').textContent = '保存しました: mandala-orb-demo.webm (' + (blob.size / 1e6).toFixed(1) + ' MB)。mp4化は README 参照。';
+    $('recBtn').classList.remove('active'); recording = false; fakeLevel = false; setState('idle');
+  });
+
+  // ---- 組み込みコードの表示 ----
+  function updateCode() {
+    const o = orb.get();
+    $('code').textContent =
+`const orb = MandalaOrb.create(canvas, {
+  pattern: '${o.pattern}',
+  density: ${Math.round(o.density)},
+  sensitivity: ${Number(o.sensitivity).toFixed(1)},
+  symmetry: ${Math.round(o.symmetry)},
+  spin: ${Number(o.spin).toFixed(2)},
+  color: '${o.color}',
+  colorEdge: '${o.colorEdge}',
+});
+orb.setState('listening'); // idle|listening|thinking|speaking
+orb.setLevel(0.42);        // 音量 0..1 を毎フレーム渡す`;
+  }
+  updateCode();
+})();
+</script>
+</body>
+</html>
