@@ -1,7 +1,7 @@
 # 【無料配布】AIが「聞いてる・考えてる・話してる」を光で見せる — 曼荼羅＆オーブ音声ビジュアライザーを公開しました
 
 > note / Brain 共通の紹介記事。Brainに載せる場合は末尾の「有料版について」を残し、noteでは削るか予告だけにする。
-> `__GITHUB__` はリポジトリURLに、`__DEMO__` はGitHub PagesのデモURLに置き換える。
+> `https://github.com/tamasizume/earth-antenna-mandala-orb` はリポジトリURLに、`https://tamasizume.github.io/earth-antenna-mandala-orb/` はGitHub PagesのデモURLに置き換える。
 
 ---
 
@@ -13,8 +13,8 @@ AI音声チャットを作ったとき、いちばん困ったのは「今AIは�
 そこで、会話の状態に合わせて自動で表情を変える光のオーブを作りました。
 **AI音声チャットパック 曼荼羅＆オーブ版** として、GitHubで無料公開（MIT）しています。
 
-▶ デモ（ブラウザで動きます）: __DEMO__
-▶ ソースコード: __GITHUB__
+▶ デモ（ブラウザで動きます）: https://tamasizume.github.io/earth-antenna-mandala-orb/
+▶ ソースコード: https://github.com/tamasizume/earth-antenna-mandala-orb
 
 ## どんなもの？
 

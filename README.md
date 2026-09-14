@@ -3,7 +3,8 @@
 会話の状態(idle / listening / thinking / speaking)と音量を外から渡すだけで動く、音声ビジュアライザーです。
 マイク処理・TTS・APIは一切含まないので、Claude / ChatGPT / Gemini / 自作ボットのどれからでも同じ呼び方で使えます。
 
-▶ デモ: `index.html` をChrome/Edgeで開く(調整パネル・自動デモ・録画付き)
+▶ デモ(ブラウザで動く): https://tamasizume.github.io/earth-antenna-mandala-orb/
+▶ ローカルでは `index.html` をChrome/Edgeで開く(調整パネル・自動デモ・録画付き)
 ▶ 実際に会話するサンプル: `examples/voice-chat.html`(ブラウザ内蔵の音声認識/合成のみ、APIキー不要)
 
 - `mandala-orb.js` … 本体(依存なし、1ファイル) / `mandala-orb.min.js` … 圧縮版(6KB)

@@ -1,7 +1,7 @@
 # 販売・紹介用の文章と画像 — AI音声チャットパック 曼荼羅＆オーブ版
 
 無料版（GitHub）と有料の統合パック（BOOTH / Brain）の両方で使い回せるように書いています。
-`__GITHUB__` `__DEMO__` `__PRICE__` は公開時に置き換えてください。
+`https://github.com/tamasizume/earth-antenna-mandala-orb` `https://tamasizume.github.io/earth-antenna-mandala-orb/` `__PRICE__` は公開時に置き換えてください。
 
 ---
 
@@ -28,7 +28,7 @@ AI音声チャットを作ったとき、「今AIは聞いているのか、考�
 私が制作した曼荼羅＆オーブの音声ビジュアライザーを、あなたのAIチャットに組み込みます。
 会話の4つの状態（待機／聞き取り／思考中／発話中）に合わせて、光のオーブが自動で表情を変えます。
 
-▶ 動くデモ: __DEMO__
+▶ 動くデモ: https://tamasizume.github.io/earth-antenna-mandala-orb/
 
 **できること**
 - 既存のWebチャット画面（HTML / React / Vue など）へのオーブ組み込み
