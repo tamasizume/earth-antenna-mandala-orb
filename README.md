@@ -4,6 +4,7 @@
 マイク処理・TTS・APIは一切含まないので、Claude / ChatGPT / Gemini / 自作ボットのどれからでも同じ呼び方で使えます。
 
 ▶ デモ(ブラウザで動く): https://tamasizume.github.io/earth-antenna-mandala-orb/
+▶ 紹介記事(note): https://note.com/tamasizume/n/n51b3056e64d3
 ▶ ローカルでは `index.html` をChrome/Edgeで開く(調整パネル・自動デモ・録画付き)
 ▶ 実際に会話するサンプル: `examples/voice-chat.html`(ブラウザ内蔵の音声認識/合成のみ、APIキー不要)
 
