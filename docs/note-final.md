@@ -74,3 +74,6 @@ MITライセンスなので、商用・改変・再配布すべて自由です�
 
 デモ: https://tamasizume.github.io/earth-antenna-mandala-orb/
 ソース: https://github.com/tamasizume/earth-antenna-mandala-orb
+
+自分のチャット画面に組み込んでほしい方は、ココナラで承っています。
+https://coconala.com/services/4401278
