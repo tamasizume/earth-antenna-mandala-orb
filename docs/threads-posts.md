@@ -107,7 +107,7 @@ https://zenn.dev/tamasizume/articles/5bab9ac372f04f
 **Day 12**（動画：縦 ＋ リンク）
 ```
 Shortsにも出しました。
-（YouTube ShortsのURL）
+https://youtube.com/shorts/DyjuOZeUmp4
 ```
 
 **Day 13**（テキストのみ）
