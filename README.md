@@ -5,6 +5,7 @@
 
 ▶ デモ(ブラウザで動く): https://tamasizume.github.io/earth-antenna-mandala-orb/
 ▶ 紹介記事(note): https://note.com/tamasizume/n/n51b3056e64d3
+▶ 技術解説(Zenn): https://zenn.dev/tamasizume/articles/5bab9ac372f04f
 ▶ 組み込み・調整のご依頼(ココナラ): https://coconala.com/services/4401278
 ▶ ローカルでは `index.html` をChrome/Edgeで開く(調整パネル・自動デモ・録画付き)
 ▶ 実際に会話するサンプル: `examples/voice-chat.html`(ブラウザ内蔵の音声認識/合成のみ、APIキー不要)

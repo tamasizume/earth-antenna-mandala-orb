@@ -93,7 +93,7 @@ orb.setLevel(0.42)
 ```
 作り方と、ハマったところを記事にしました。
 加算合成で白飛びした話、透明のまま残像を出す話。
-（Zennの記事URL）
+https://zenn.dev/tamasizume/articles/5bab9ac372f04f
 ```
 
 **Day 11**（テキストのみ）
