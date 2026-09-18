@@ -63,8 +63,13 @@
   </div>
 
   <div class="group">
-    <div class="label"><span>録画(YouTube用 1920×1080・背景黒)</span></div>
+    <div class="label"><span>録画(背景黒・30fps)</span></div>
     <div class="row">
+      <select id="recSize">
+        <option value="1920x1080">横 1920×1080(YouTube)</option>
+        <option value="1080x1920">縦 1080×1920(Shorts/TikTok)</option>
+        <option value="1080x1080">正方形 1080×1080(SNS)</option>
+      </select>
       <button id="recBtn">自動デモを録画して保存</button>
     </div>
     <div class="note" id="recNote">曼荼羅→丸いアイコンの順に各状態を1周ずつ、約24秒の .webm を書き出します。</div>
@@ -250,7 +255,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden && audioCtx && audioCtx.state === 'running') audioCtx.suspend(); else if (!document.hidden && audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); });
 
   // ---- 録画: 1920×1080の裏キャンバスで自動デモを回し、MediaRecorderで .webm に ----
-  const REC_W = 1920, REC_H = 1080, REC_FPS = 30;
+  const REC_FPS = 30;
   let recording = false;
   $('recBtn').addEventListener('click', async () => {
     if (recording) return;
@@ -261,6 +266,7 @@
     $('recBtn').classList.add('active');
 
     const rc = document.createElement('canvas');
+    const [REC_W, REC_H] = $('recSize').value.split('x').map(Number);
     rc.width = REC_W; rc.height = REC_H;
     const o = orb.get();
     const rec = MandalaOrb.create(rc, {
@@ -306,9 +312,9 @@
     const blob = new Blob(chunks, { type: mime || 'video/webm' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = 'mandala-orb-demo.webm'; document.body.appendChild(a); a.click(); a.remove();
+    a.href = url; a.download = 'mandala-orb-demo-' + REC_W + 'x' + REC_H + '.webm'; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10000);
-    $('recNote').textContent = '保存しました: mandala-orb-demo.webm (' + (blob.size / 1e6).toFixed(1) + ' MB)。mp4化は README 参照。';
+    $('recNote').textContent = '保存しました: mandala-orb-demo-' + REC_W + 'x' + REC_H + '.webm (' + (blob.size / 1e6).toFixed(1) + ' MB)。mp4化は README 参照。';
     $('recBtn').classList.remove('active'); recording = false; fakeLevel = false; setState('idle');
   });
 
