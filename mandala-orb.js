@@ -32,6 +32,8 @@
     orbMix: 0.6,             // 丸いアイコン: 色の混ざり具合
     background: 'transparent', // 'transparent' か CSS色。透明なら下地の上に重ねられる
     pixelRatio: 0,           // 0=自動(devicePixelRatio)。録画などで実寸にしたいときは1
+    manual: false,           // true にすると自動描画せず、tick(dt) で1コマずつ進める(動画書き出し用)
+    width: 0, height: 0,     // 0=表示サイズに追従。指定すると固定サイズで描く(書き出し用)
     attack: 0.35,            // 音量の立ち上がりの滑らかさ(0..1、大きいほど速い)
     release: 0.12,           // 音量の減衰の滑らかさ
     // 状態ごとの効き方。audio=感度倍率, density=粒子数倍率, scale=全体の大きさ,
@@ -87,15 +89,15 @@
     function resize() {
       const rect = canvas.getBoundingClientRect();
       dpr = opts.pixelRatio > 0 ? opts.pixelRatio : Math.min(2, window.devicePixelRatio || 1);
-      W = Math.max(1, Math.round(rect.width || canvas.width));
-      H = Math.max(1, Math.round(rect.height || canvas.height));
+      W = Math.max(1, Math.round(opts.width || rect.width || canvas.width));
+      H = Math.max(1, Math.round(opts.height || rect.height || canvas.height));
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       clearAll();
     }
     let ro = null;
-    if (typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(resize); ro.observe(canvas); }
+    if (typeof ResizeObserver !== 'undefined' && !(opts.width && opts.height)) { ro = new ResizeObserver(resize); ro.observe(canvas); }
     resize();
 
     function clearAll() {
@@ -258,6 +260,10 @@
       rafId = requestAnimationFrame(frame);
       const dt = lastMs ? Math.min(0.05, (nowMs - lastMs) / 1000) : 1 / 60;
       lastMs = nowMs;
+      step(dt);
+    }
+    // 1コマ分だけ進める。manual:true のときは外から tick(dt) で呼ぶ(コマ落ちしない書き出し用)
+    function step(dt) {
       t += dt;
 
       // 音量のなめらか化(立ち上がりは速く、減衰はゆっくり)
@@ -297,7 +303,8 @@
       get() { return Object.assign({}, opts, { states: deepMergeStates(opts.states, null) }); },
       get state() { return state; },
       get level() { return level; },
-      start() { if (!running && !destroyed) { running = true; lastMs = 0; rafId = requestAnimationFrame(frame); } return api; },
+      start() { if (!running && !destroyed && !opts.manual) { running = true; lastMs = 0; rafId = requestAnimationFrame(frame); } return api; },
+      tick(dt) { if (!destroyed) step(dt == null ? 1 / 60 : dt); return api; },
       stop() { running = false; cancelAnimationFrame(rafId); return api; },
       destroy() { api.stop(); destroyed = true; if (ro) ro.disconnect(); clearAll(); },
       resize: resize,

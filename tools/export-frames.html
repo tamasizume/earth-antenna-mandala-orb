@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Mandala Orb — コマ書き出し(高画質・コマ落ちなし)</title>
+<style>
+  body { margin:0; background:#07070c; color:#e6e6f0; font:14px/1.6 system-ui,sans-serif; padding:20px; }
+  h1 { font-size:16px; }
+  label { display:block; margin:8px 0 4px; color:#8a8aa3; font-size:12px; }
+  select, input, button { background:#1a1a26; color:#e6e6f0; border:1px solid #26263a; border-radius:6px; padding:8px; font:inherit; }
+  button { cursor:pointer; } button.primary { background:#6eafff; color:#000; font-weight:600; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+  #log { margin-top:14px; white-space:pre-wrap; font:12px/1.5 ui-monospace,monospace; color:#9ec5ff; }
+  canvas { display:block; margin-top:14px; max-width:100%; max-height:50vh; background:#000; }
+  code { background:#0b0b12; padding:2px 5px; border-radius:4px; }
+</style>
+</head>
+<body>
+<h1>コマ書き出し（1コマずつ計算 → 連番PNG → ffmpegで動画に）</h1>
+<p>画面録画と違ってコマ落ちしません。Chrome / Edge で開き、保存先フォルダを選ぶと全コマを書き出します。</p>
+<div class="row">
+  <div><label>サイズ</label>
+    <select id="size">
+      <option value="1080x1920">縦 1080×1920（Shorts）</option>
+      <option value="1920x1080">横 1920×1080（YouTube）</option>
+      <option value="1080x1080">正方形 1080×1080</option>
+    </select></div>
+  <div><label>fps</label><select id="fps"><option>60</option><option>30</option></select></div>
+  <div><label>パターン</label>
+    <select id="patterns"><option value="mandala,orb">曼荼羅 → オーブ</option><option value="mandala">曼荼羅のみ</option><option value="orb">オーブのみ</option></select></div>
+  <div><label>密度</label><input id="density" type="number" value="300" style="width:80px"></div>
+  <div><label>花びら</label><input id="symmetry" type="number" value="15" style="width:70px"></div>
+  <div><button id="go" class="primary">フォルダを選んで書き出し</button></div>
+</div>
+<div id="log"></div>
+<canvas id="c"></canvas>
+
+<script src="../mandala-orb.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const log = (m) => { $('log').textContent += m + '\n'; };
+  const SEQ = [['idle', 2.5], ['listening', 3.0], ['thinking', 2.5], ['speaking', 3.5]];
+  const TAIL = 0.8;
+
+  // 擬似音量(時間だけで決まるので毎回同じ結果になる)
+  function fakeLevel(tt) { return Math.max(0, Math.min(1, 0.35 + 0.3 * Math.sin(tt * 5.3) + 0.2 * Math.sin(tt * 13.1) + 0.15 * Math.sin(tt * 1.7))); }
+
+  async function pickSink() {
+    // 開発用: window.__frameSink(index, blob) があればそれを使う(ローカルサーバーへ送る等)
+    if (typeof window.__frameSink === 'function') return window.__frameSink;
+    if (!window.showDirectoryPicker) throw new Error('このブラウザはフォルダ保存に対応していません(Chrome / Edge を使ってください)');
+    const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+    return async (i, blob) => {
+      const fh = await dir.getFileHandle('frame_' + String(i).padStart(5, '0') + '.png', { create: true });
+      const w = await fh.createWritable(); await w.write(blob); await w.close();
+    };
+  }
+
+  $('go').addEventListener('click', async () => {
+    let sink;
+    try { sink = await pickSink(); } catch (e) { log('中止: ' + e.message); return; }
+    $('go').disabled = true; $('log').textContent = '';
+
+    const [W, H] = $('size').value.split('x').map(Number);
+    const fps = Number($('fps').value), dt = 1 / fps;
+    const patterns = $('patterns').value.split(',');
+    const canvas = $('c'); canvas.width = W; canvas.height = H;
+    const orb = MandalaOrb.create(canvas, {
+      pattern: patterns[0], density: Number($('density').value), symmetry: Number($('symmetry').value),
+      background: '#000', pixelRatio: 1, manual: true, width: W, height: H,
+    });
+
+    // タイムライン: [開始秒, パターン, 状態]
+    const timeline = []; let tcur = 0;
+    for (const p of patterns) for (const [st, sec] of SEQ) { timeline.push([tcur, p, st]); tcur += sec; }
+    timeline.push([tcur, patterns[patterns.length - 1], 'idle']); tcur += TAIL;
+    const total = Math.round(tcur * fps);
+    log('書き出し: ' + W + 'x' + H + ' / ' + fps + 'fps / ' + total + 'コマ (' + tcur.toFixed(1) + '秒)');
+
+    // 曼荼羅の残像が安定するまで空回し
+    for (let i = 0; i < fps; i++) orb.tick(dt);
+
+    let ti = 0; const t0 = performance.now();
+    for (let i = 0; i < total; i++) {
+      const tt = i * dt;
+      while (ti + 1 < timeline.length && tt >= timeline[ti + 1][0]) ti++;
+      const [, pat, st] = timeline[ti];
+      if (orb.get().pattern !== pat) orb.set({ pattern: pat });
+      orb.setState(st);
+      orb.setLevel((st === 'listening' || st === 'speaking') ? fakeLevel(tt) : 0);
+      orb.tick(dt);
+      const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+      await sink(i, blob);
+      if (i % (fps * 2) === 0) log('  ' + i + ' / ' + total + '  (' + ((performance.now() - t0) / 1000).toFixed(0) + '秒経過)');
+      await new Promise(r => setTimeout(r, 0));
+    }
+    orb.destroy();
+    log('完了。動画にするには、そのフォルダで:');
+    log('ffmpeg -framerate ' + fps + ' -i frame_%05d.png -c:v libx264 -pix_fmt yuv420p -crf 18 -movflags +faststart mandala-orb-' + W + 'x' + H + '.mp4');
+    $('go').disabled = false;
+  });
+})();
+</script>
+</body>
+</html>

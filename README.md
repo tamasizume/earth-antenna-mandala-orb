@@ -105,3 +105,10 @@ YouTubeは .webm のままアップロードできますが、mp4 にしたい�
 ```bash
 ffmpeg -i mandala-orb-demo.webm -c:v libx264 -pix_fmt yuv420p -crf 18 -r 30 mandala-orb-demo.mp4
 ```
+
+## コマ落ちしない高画質書き出し(おすすめ)
+
+画面録画方式(上の録画ボタン)はPCの負荷でコマ落ちすることがあります。
+`tools/export-frames.html` をChrome/Edgeで開き、保存先フォルダを選ぶと、1コマずつ計算した連番PNG(60fps)を書き出します。
+終わったら画面に表示される ffmpeg コマンドで動画にしてください。ライブラリ側は `manual: true` + `tick(dt)` で1コマずつ進めています。
+
